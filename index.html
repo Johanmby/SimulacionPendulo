@@ -4,125 +4,135 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Simulación de Péndulos con Fricción</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    body {
-      font-family: system-ui, sans-serif;
-      background: #f5f4f0;
-      color: #1a1a1a;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 2rem 1rem;
+    :root {
+      --bg: #f0eff9;
+      --surface: #e8e7f5;
+      --surface2: #dddcf0;
+      --text: #1a1830;
+      --text2: #6b6880;
+      --border: rgba(100,90,180,0.12);
+      --c1: #7F77DD;
+      --c2: #1D9E75;
+      --c3: #D85A30;
+      --c1g: rgba(127,119,221,0.14);
+      --c2g: rgba(29,158,117,0.14);
+      --c3g: rgba(216,90,48,0.14);
     }
 
     @media (prefers-color-scheme: dark) {
-      body { background: #1a1a18; color: #f0efe9; }
-      .card { background: #2a2a27 !important; }
-      canvas { border-color: rgba(255,255,255,0.1) !important; }
-      .btn { color: #f0efe9; border-color: rgba(255,255,255,0.2); }
-      .btn:hover { background: rgba(255,255,255,0.06); }
-      select { background: #2a2a27; color: #f0efe9; border-color: rgba(255,255,255,0.2); }
+      :root {
+        --bg: #13121e;
+        --surface: #1e1d2e;
+        --surface2: #28273c;
+        --text: #e8e6ff;
+        --text2: #8884aa;
+        --border: rgba(150,140,255,0.1);
+      }
     }
 
-    #app { width: 100%; max-width: 700px; }
-
-    h1 { font-size: 18px; font-weight: 500; margin-bottom: 1.25rem; }
-
-    canvas {
-      width: 100%; display: block;
-      border-radius: 12px;
-      border: 0.5px solid rgba(0,0,0,0.1);
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 2rem 1rem 3rem;
+      display: flex;
+      justify-content: center;
     }
 
-    .g3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
+    #app { width: 100%; max-width: 780px; display: flex; flex-direction: column; gap: 1.5rem; }
 
-    .card { background: #ebebea; border-radius: 8px; padding: 14px 16px; text-align: center; }
-    .cl { font-size: 11px; margin-bottom: 4px; letter-spacing: 0.04em; text-transform: uppercase; }
-    .cv { font-size: 24px; font-weight: 500; line-height: 1.15; }
-    .cs { font-size: 11px; margin-top: 4px; color: #777; }
+    header { display: flex; flex-direction: column; gap: 4px; }
+    header h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.3px; }
+    header p { font-size: 13px; color: var(--text2); }
 
-    .sc { display: flex; flex-direction: column; gap: 5px; }
+    /* ── canvas simulación ── */
+    #pc { width: 100%; display: block; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); }
+
+    /* ── sliders ── */
+    .sliders { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .sc { display: flex; flex-direction: column; gap: 5px; background: var(--surface); border-radius: 10px; padding: 12px 14px; border: 1px solid var(--border); }
     .sr { display: flex; justify-content: space-between; align-items: baseline; }
-    .sn { font-size: 13px; font-weight: 500; }
-    .sf { font-size: 12px; color: #777; }
-    .sh { font-size: 11px; color: #999; text-align: center; margin-top: 1px; }
-
+    .sn { font-size: 13px; font-weight: 600; }
+    .sf { font-size: 12px; color: var(--text2); }
+    .sh { font-size: 11px; color: var(--text2); text-align: center; margin-top: 1px; }
     input[type=range] { width: 100%; cursor: pointer; }
 
-    .btn {
-      padding: 9px 22px; border-radius: 8px;
-      border: 0.5px solid rgba(0,0,0,0.2);
-      background: transparent; color: #1a1a1a;
-      cursor: pointer; font-size: 14px; font-family: inherit;
-    }
-    .btn:hover { background: rgba(0,0,0,0.05); }
-    .btn.p { background: #e6f1fb; color: #185fa5; border-color: transparent; }
+    /* ── stat cards ── */
+    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .card { background: var(--surface); border-radius: 10px; padding: 14px 16px; text-align: center; border: 1px solid var(--border); }
+    .cl { font-size: 10px; margin-bottom: 4px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; }
+    .cv { font-size: 22px; font-weight: 600; line-height: 1.2; }
+    .cs { font-size: 11px; margin-top: 4px; color: var(--text2); }
 
-    select {
-      font-size: 13px; padding: 6px 10px;
-      border: 0.5px solid rgba(0,0,0,0.2); border-radius: 8px;
-      background: #fff; color: #1a1a1a; cursor: pointer; font-family: inherit;
-    }
+    /* ── controles ── */
+    .controls { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+    .btn { padding: 9px 22px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; font-size: 13px; font-family: inherit; font-weight: 500; transition: background 0.15s; }
+    .btn:hover { background: var(--surface2); }
+    .btn.p { background: var(--c1); color: #fff; border-color: transparent; }
+    .btn.p:hover { opacity: 0.88; }
+    .btn.ex { background: #1a7a45; color: #fff; border-color: transparent; }
+    .btn.ex:hover { opacity: 0.88; }
+    select { font-size: 13px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text); cursor: pointer; font-family: inherit; }
+
+    /* ── sección gráficas energía ── */
+    .energy-section { display: flex; flex-direction: column; gap: 14px; }
+    .energy-section h2 { font-size: 15px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.08em; }
+    .energy-grid { display: flex; flex-direction: column; gap: 16px; }
+    .energy-panel { background: var(--surface); border-radius: 14px; border: 1px solid var(--border); padding: 16px; }
+    .energy-panel h3 { font-size: 13px; font-weight: 600; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+    .energy-panel h3 span.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .energy-panel canvas { width: 100%; display: block; border-radius: 8px; }
+    .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
+    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text2); }
+    .legend-item span { width: 20px; height: 3px; border-radius: 2px; display: inline-block; }
   </style>
 </head>
 <body>
 <div id="app">
-  <h1>Simulación de péndulos con fricción variable</h1>
+  <header>
+    <h1>Simulación de péndulos con fricción variable</h1>
+    <p>Integración de Euler — ecuación del péndulo amortiguado: α = −(g/L)·sin θ − 2γ·ω</p>
+  </header>
 
-  <canvas id="pc" width="680" height="330"></canvas>
+  <!-- Canvas simulación -->
+  <canvas id="pc" width="760" height="330"></canvas>
 
-  <div class="g3" style="margin-top:1.25rem;">
+  <!-- Sliders -->
+  <div class="sliders">
     <div class="sc">
-      <div class="sr">
-        <span class="sn" style="color:#7F77DD;">Péndulo 1</span>
-        <span class="sf">γ = <span id="fv1">0.15</span></span>
-      </div>
-      <input type="range" id="fs1" min="1" max="300" value="15" step="1" style="accent-color:#7F77DD;">
+      <div class="sr"><span class="sn" style="color:var(--c1);">Péndulo 1</span><span class="sf">γ = <span id="fv1">0.15</span></span></div>
+      <input type="range" id="fs1" min="1" max="300" value="15" step="1" style="accent-color:var(--c1);">
       <span class="sh">Poca fricción</span>
     </div>
     <div class="sc">
-      <div class="sr">
-        <span class="sn" style="color:#1D9E75;">Péndulo 2</span>
-        <span class="sf">γ = <span id="fv2">0.60</span></span>
-      </div>
-      <input type="range" id="fs2" min="1" max="300" value="60" step="1" style="accent-color:#1D9E75;">
+      <div class="sr"><span class="sn" style="color:var(--c2);">Péndulo 2</span><span class="sf">γ = <span id="fv2">0.60</span></span></div>
+      <input type="range" id="fs2" min="1" max="300" value="60" step="1" style="accent-color:var(--c2);">
       <span class="sh">Fricción media</span>
     </div>
     <div class="sc">
-      <div class="sr">
-        <span class="sn" style="color:#D85A30;">Péndulo 3</span>
-        <span class="sf">γ = <span id="fv3">2.00</span></span>
-      </div>
-      <input type="range" id="fs3" min="1" max="300" value="200" step="1" style="accent-color:#D85A30;">
+      <div class="sr"><span class="sn" style="color:var(--c3);">Péndulo 3</span><span class="sf">γ = <span id="fv3">2.00</span></span></div>
+      <input type="range" id="fs3" min="1" max="300" value="200" step="1" style="accent-color:var(--c3);">
       <span class="sh">Mucha fricción</span>
     </div>
   </div>
 
-  <div class="g3" style="margin-top:1rem;">
-    <div class="card">
-      <div class="cl" style="color:#7F77DD;">Péndulo 1</div>
-      <div class="cv" id="tv1">—</div>
-      <div class="cs" id="sv1">Listo</div>
-    </div>
-    <div class="card">
-      <div class="cl" style="color:#1D9E75;">Péndulo 2</div>
-      <div class="cv" id="tv2">—</div>
-      <div class="cs" id="sv2">Listo</div>
-    </div>
-    <div class="card">
-      <div class="cl" style="color:#D85A30;">Péndulo 3</div>
-      <div class="cv" id="tv3">—</div>
-      <div class="cs" id="sv3">Listo</div>
-    </div>
+  <!-- Cards estado -->
+  <div class="cards">
+    <div class="card"><div class="cl" style="color:var(--c1);">Péndulo 1</div><div class="cv" id="tv1">—</div><div class="cs" id="sv1">Listo</div></div>
+    <div class="card"><div class="cl" style="color:var(--c2);">Péndulo 2</div><div class="cv" id="tv2">—</div><div class="cs" id="sv2">Listo</div></div>
+    <div class="card"><div class="cl" style="color:var(--c3);">Péndulo 3</div><div class="cv" id="tv3">—</div><div class="cs" id="sv3">Listo</div></div>
   </div>
 
-  <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-top:1.25rem;flex-wrap:wrap;">
+  <!-- Controles -->
+  <div class="controls">
     <button class="btn p" id="startBtn" onclick="psStart()">▶ Iniciar simulación</button>
     <button class="btn" onclick="psReset()">↺ Reiniciar</button>
-    <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#777;">
+    <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text2);">
       <span>Velocidad:</span>
       <select id="spd">
         <option value="1">1×</option>
@@ -131,6 +141,15 @@
         <option value="10">10×</option>
       </select>
     </div>
+    <button class="btn ex" id="exportBtn" onclick="exportExcel()">⬇ Exportar Excel</button>
+  </div>
+
+  <!-- Gráficas de energía -->
+  <div class="energy-section">
+    <h2>📊 Gráficas de energía</h2>
+    <div class="energy-grid" id="energyGrid">
+      <!-- Se generan dinámicamente -->
+    </div>
   </div>
 </div>
 
@@ -138,37 +157,103 @@
 (function () {
   const cv = document.getElementById('pc');
   const ctx = cv.getContext('2d');
-  const W = 680, H = 330;
+  const W = 760, H = 330;
   const C = ['#7F77DD', '#1D9E75', '#D85A30'];
   const CG = ['rgba(127,119,221,0.16)', 'rgba(29,158,117,0.16)', 'rgba(216,90,48,0.16)'];
   const px0 = [W / 6, W / 2, 5 * W / 6];
-  const PY = 44, RL = 215;
-  const g = 9.81, Lm = 1.0;
+  const PY = 44, RL = 210;
+  const g = 9.81, Lm = 1.0, m = 1.0;
   const ST = 0.022, SO = 0.04;
 
+  // Colores energía
+  const E_KIN  = '#f59e0b'; // cinética  – ámbar
+  const E_POT  = '#60a5fa'; // potencial – azul
+  const E_TOT  = '#e879f9'; // total      – fucsia
+  const E_DISS = '#94a3b8'; // disipada  – gris
+
   let ps, run, aid, lts;
+  // Canvases de energía
+  const ecvs = [];
+  const ectxs = [];
+
+  // ── construir paneles de energía ──
+  function buildEnergyPanels() {
+    const grid = document.getElementById('energyGrid');
+    grid.innerHTML = '';
+    ecvs.length = 0; ectxs.length = 0;
+    ['Péndulo 1', 'Péndulo 2', 'Péndulo 3'].forEach((name, i) => {
+      const panel = document.createElement('div');
+      panel.className = 'energy-panel';
+      panel.innerHTML = `
+        <h3><span class="dot" style="background:${C[i]}"></span>${name} — γ = <span id="elbl${i}">${(parseInt(document.getElementById('fs'+(i+1)).value)/100).toFixed(2)}</span></h3>
+        <canvas id="ecv${i}" width="720" height="160"></canvas>
+        <div class="legend">
+          <div class="legend-item"><span style="background:${E_KIN}"></span>Cinética (Ec)</div>
+          <div class="legend-item"><span style="background:${E_POT}"></span>Potencial (Ep)</div>
+          <div class="legend-item"><span style="background:${E_TOT}"></span>Total (Ec+Ep)</div>
+          <div class="legend-item"><span style="background:${E_DISS}"></span>Disipada acum.</div>
+        </div>`;
+      grid.appendChild(panel);
+      const c = document.getElementById('ecv'+i);
+      ecvs.push(c);
+      ectxs.push(c.getContext('2d'));
+    });
+  }
 
   function mk() {
     return [0, 1, 2].map(i => ({
       theta: 0.36, omega: 0,
       friction: parseInt(document.getElementById('fs' + (i + 1)).value) / 100,
-      time: 0, stopped: false, trail: [], stoppedTime: null
+      time: 0, stopped: false, trail: [], stoppedTime: null,
+      // historiales de energía
+      histTime: [], histEk: [], histEp: [], histEtot: [], histEdiss: [],
+      ediss: 0,  // energía disipada acumulada
     }));
   }
 
   ps = mk();
+  buildEnergyPanels();
 
+  // ── física ──
   function phys(p, dt) {
     if (p.stopped) return;
+    const ek_prev = 0.5 * m * Lm * Lm * p.omega * p.omega;
     const a = -(g / Lm) * Math.sin(p.theta) - 2 * p.friction * p.omega;
     p.omega += a * dt;
     p.theta += p.omega * dt;
     p.time += dt;
+    const ek_new = 0.5 * m * Lm * Lm * p.omega * p.omega;
+    const h = Lm * (1 - Math.cos(p.theta));
+    const ep = m * g * h;
+    const etot = ek_new + ep;
+    // disipada = pérdida neta de energía mecánica
+    const prev_ep = m * g * Lm * (1 - Math.cos(p.theta - p.omega * dt)); // ep anterior aproximada
+    const delta_emec = (ek_new + ep) - (ek_prev + prev_ep);
+    if (delta_emec < 0) p.ediss += Math.abs(delta_emec);
+
+    // muestreo cada ~0.05 s de tiempo real de simulación
+    const last = p.histTime.length ? p.histTime[p.histTime.length - 1] : -1;
+    if (p.time - last >= 0.04) {
+      p.histTime.push(parseFloat(p.time.toFixed(3)));
+      p.histEk.push(parseFloat(ek_new.toFixed(5)));
+      p.histEp.push(parseFloat(ep.toFixed(5)));
+      p.histEtot.push(parseFloat(etot.toFixed(5)));
+      p.histEdiss.push(parseFloat(p.ediss.toFixed(5)));
+    }
+
     if (Math.abs(p.theta) < ST && Math.abs(p.omega) < SO) {
       p.theta = 0; p.omega = 0; p.stopped = true; p.stoppedTime = p.time;
     }
   }
 
+  // ── energías para dibujo en tiempo real ──
+  function energy(p) {
+    const ek = 0.5 * m * Lm * Lm * p.omega * p.omega;
+    const ep = m * g * Lm * (1 - Math.cos(p.theta));
+    return { ek, ep, etot: ek + ep, ediss: p.ediss };
+  }
+
+  // ── dibujo simulación ──
   function bxy(p, i) {
     return [px0[i] + RL * Math.sin(p.theta), PY + RL * Math.cos(p.theta)];
   }
@@ -176,17 +261,13 @@
   function draw() {
     const dk = matchMedia('(prefers-color-scheme: dark)').matches;
     ctx.clearRect(0, 0, W, H);
-
-    ctx.fillStyle = dk ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
+    ctx.fillStyle = dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
     ctx.fillRect(0, 0, W, 7);
-
     ctx.save();
     ctx.setLineDash([4, 5]);
-    ctx.strokeStyle = dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+    ctx.strokeStyle = dk ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)';
     ctx.lineWidth = 1;
-    [W / 3, 2 * W / 3].forEach(x => {
-      ctx.beginPath(); ctx.moveTo(x, 7); ctx.lineTo(x, H); ctx.stroke();
-    });
+    [W / 3, 2 * W / 3].forEach(x => { ctx.beginPath(); ctx.moveTo(x, 7); ctx.lineTo(x, H); ctx.stroke(); });
     ctx.restore();
 
     ps.forEach((p, i) => {
@@ -199,7 +280,6 @@
 
     ps.forEach((p, i) => {
       const [bx, by] = bxy(p, i);
-
       p.trail.push([bx, by]);
       if (p.trail.length > 65) p.trail.shift();
       for (let j = 1; j < p.trail.length; j++) {
@@ -214,19 +294,18 @@
         ctx.stroke();
       }
 
-      ctx.font = '500 12px system-ui, sans-serif';
+      ctx.font = '600 12px Segoe UI, system-ui, sans-serif';
       ctx.fillStyle = C[i];
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
       ctx.fillText('γ = ' + p.friction.toFixed(2), px0[i], 12);
 
       ctx.beginPath();
-      ctx.strokeStyle = dk ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.16)';
+      ctx.strokeStyle = dk ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.14)';
       ctx.lineWidth = 1.8; ctx.lineCap = 'round';
       ctx.moveTo(px0[i], PY); ctx.lineTo(bx, by); ctx.stroke();
 
       ctx.beginPath();
-      ctx.fillStyle = dk ? 'rgba(255,255,255,0.42)' : 'rgba(0,0,0,0.26)';
+      ctx.fillStyle = dk ? 'rgba(255,255,255,0.38)' : 'rgba(0,0,0,0.22)';
       ctx.arc(px0[i], PY, 5, 0, Math.PI * 2); ctx.fill();
 
       const gr = ctx.createRadialGradient(bx, by, 0, bx, by, 28);
@@ -236,25 +315,87 @@
 
       ctx.beginPath(); ctx.fillStyle = C[i];
       ctx.arc(bx, by, 15, 0, Math.PI * 2); ctx.fill();
-
-      ctx.beginPath();
-      ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 1;
       ctx.arc(bx, by, 11, 0, Math.PI * 2); ctx.stroke();
-
-      ctx.beginPath();
-      ctx.fillStyle = 'rgba(255,255,255,0.32)';
+      ctx.beginPath(); ctx.fillStyle = 'rgba(255,255,255,0.30)';
       ctx.arc(bx - 4, by - 4, 5, 0, Math.PI * 2); ctx.fill();
 
       if (p.stopped) {
-        ctx.font = '500 11px system-ui, sans-serif';
-        ctx.fillStyle = C[i];
+        ctx.font = '500 11px Segoe UI, system-ui'; ctx.fillStyle = C[i];
         ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
         ctx.fillText('● detenido', px0[i], H - 8);
       }
     });
   }
 
+  // ── dibujo gráficas energía ──
+  function drawEnergy(i) {
+    const p = ps[i];
+    const c = ecvs[i];
+    const cx = ectxs[i];
+    const cw = c.width, ch = c.height;
+    const PAD = { top: 12, right: 16, bottom: 28, left: 52 };
+    const pw = cw - PAD.left - PAD.right;
+    const ph = ch - PAD.top - PAD.bottom;
+    const dk = matchMedia('(prefers-color-scheme: dark)').matches;
+
+    cx.clearRect(0, 0, cw, ch);
+
+    const hist = p.histTime;
+    if (hist.length < 2) {
+      cx.fillStyle = dk ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.18)';
+      cx.font = '13px Segoe UI, system-ui'; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+      cx.fillText('Inicia la simulación para ver la gráfica', cw / 2, ch / 2);
+      return;
+    }
+
+    const maxT = Math.max(...hist);
+    // E0 = energía mecánica inicial
+    const E0 = 0.5 * m * Lm * Lm * 0 + m * g * Lm * (1 - Math.cos(0.36));
+    const maxE = E0 * 1.08;
+
+    // grid
+    cx.strokeStyle = dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)';
+    cx.lineWidth = 1;
+    for (let gi = 0; gi <= 4; gi++) {
+      const y = PAD.top + ph * (1 - gi / 4);
+      cx.beginPath(); cx.moveTo(PAD.left, y); cx.lineTo(PAD.left + pw, y); cx.stroke();
+      cx.fillStyle = dk ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)';
+      cx.font = '10px Segoe UI, system-ui'; cx.textAlign = 'right'; cx.textBaseline = 'middle';
+      cx.fillText((maxE * gi / 4).toFixed(3) + ' J', PAD.left - 4, y);
+    }
+
+    function tx(t) { return PAD.left + (t / maxT) * pw; }
+    function ty(e) { return PAD.top + ph * (1 - Math.min(e / maxE, 1.05)); }
+
+    function drawLine(arr, color, lw) {
+      cx.beginPath(); cx.strokeStyle = color; cx.lineWidth = lw; cx.lineJoin = 'round';
+      arr.forEach((v, j) => { j === 0 ? cx.moveTo(tx(hist[j]), ty(v)) : cx.lineTo(tx(hist[j]), ty(v)); });
+      cx.stroke();
+    }
+
+    drawLine(p.histEdiss, E_DISS, 1.5);
+    drawLine(p.histEp,    E_POT,  1.8);
+    drawLine(p.histEk,    E_KIN,  1.8);
+    drawLine(p.histEtot,  E_TOT,  2.2);
+
+    // eje X
+    cx.fillStyle = dk ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)';
+    cx.font = '10px Segoe UI, system-ui'; cx.textAlign = 'center'; cx.textBaseline = 'top';
+    for (let ti = 0; ti <= 5; ti++) {
+      const t = maxT * ti / 5;
+      cx.fillText(t.toFixed(1) + 's', tx(t), PAD.top + ph + 5);
+    }
+
+    // energía actual
+    const e = energy(p);
+    cx.font = '11px Segoe UI, system-ui'; cx.textAlign = 'right'; cx.textBaseline = 'top';
+    cx.fillStyle = E_KIN; cx.fillText('Ec=' + e.ek.toFixed(4) + 'J', PAD.left + pw, PAD.top + 2);
+    cx.fillStyle = E_POT; cx.fillText('Ep=' + e.ep.toFixed(4) + 'J', PAD.left + pw, PAD.top + 14);
+    cx.fillStyle = E_TOT; cx.fillText('Et=' + e.etot.toFixed(4) + 'J', PAD.left + pw, PAD.top + 26);
+  }
+
+  // ── UI ──
   function ui() {
     ps.forEach((p, i) => {
       const n = i + 1;
@@ -269,6 +410,8 @@
       } else {
         tv.textContent = '—'; sv.textContent = 'Listo'; sv.style.color = '#999';
       }
+      const lbl = document.getElementById('elbl' + i);
+      if (lbl) lbl.textContent = p.friction.toFixed(2);
     });
   }
 
@@ -278,7 +421,9 @@
     const rdt = Math.min((ts - lts) / 1000, 0.05); lts = ts;
     const s = parseFloat(document.getElementById('spd').value);
     ps.forEach(p => phys(p, rdt * s));
-    draw(); ui();
+    draw();
+    ps.forEach((_, i) => drawEnergy(i));
+    ui();
     if (ps.every(p => p.stopped)) {
       run = false;
       document.getElementById('startBtn').textContent = '✓ Completado';
@@ -286,6 +431,58 @@
     }
     aid = requestAnimationFrame(loop);
   }
+
+  // ── exportar Excel ──
+  window.exportExcel = function () {
+    const wb = XLSX.utils.book_new();
+
+    ps.forEach((p, i) => {
+      const name = 'Pendulo_' + (i + 1);
+      const header = ['Tiempo (s)', 'Ec - Cinética (J)', 'Ep - Potencial (J)', 'Et - Total (J)', 'Ediss - Disipada acum. (J)'];
+      const rows = p.histTime.map((t, j) => [t, p.histEk[j], p.histEp[j], p.histEtot[j], p.histEdiss[j]]);
+
+      const wsData = [
+        [`Péndulo ${i + 1} — Coeficiente de fricción γ = ${p.friction.toFixed(2)}`],
+        [],
+        header,
+        ...rows
+      ];
+
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+      // anchos de columna
+      ws['!cols'] = [{ wch: 14 }, { wch: 22 }, { wch: 22 }, { wch: 18 }, { wch: 26 }];
+
+      // merge título
+      ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
+
+      XLSX.utils.book_append_sheet(wb, ws, name);
+    });
+
+    // hoja resumen
+    const sumData = [
+      ['Resumen de simulación'],
+      [],
+      ['Péndulo', 'γ (fricción)', 'Tiempo de parada (s)', 'Energía inicial (J)', 'Energía disipada total (J)'],
+      ...ps.map((p, i) => {
+        const E0 = m * g * Lm * (1 - Math.cos(0.36));
+        const edissTotal = p.histEdiss.length ? p.histEdiss[p.histEdiss.length - 1] : 0;
+        return [
+          'Péndulo ' + (i + 1),
+          p.friction.toFixed(2),
+          p.stoppedTime !== null ? p.stoppedTime.toFixed(3) : 'En curso',
+          parseFloat(E0.toFixed(5)),
+          parseFloat(edissTotal.toFixed(5))
+        ];
+      })
+    ];
+    const wsSummary = XLSX.utils.aoa_to_sheet(sumData);
+    wsSummary['!cols'] = [{ wch: 14 }, { wch: 14 }, { wch: 22 }, { wch: 20 }, { wch: 26 }];
+    wsSummary['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumen');
+
+    XLSX.writeFile(wb, 'pendulos_energia.xlsx');
+  };
 
   window.psStart = function () {
     if (run) return;
@@ -305,6 +502,9 @@
       sv.textContent = 'Listo'; sv.style.color = '#999';
     });
     draw();
+    ecvs.forEach((_, i) => drawEnergy(i));
+    buildEnergyPanels();
+    ecvs.forEach((_, i) => drawEnergy(i));
   };
 
   [1, 2, 3].forEach(n => {
@@ -315,7 +515,9 @@
     });
   });
 
+  // render inicial
   draw();
+  ecvs.forEach((_, i) => drawEnergy(i));
 })();
 </script>
 </body>
