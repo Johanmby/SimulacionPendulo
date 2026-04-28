@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulación de Péndulos con Fricción</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f5f4f0;
+      color: #1a1a1a;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      body { background: #1a1a18; color: #f0efe9; }
+      .card { background: #2a2a27 !important; }
+      canvas { border-color: rgba(255,255,255,0.1) !important; }
+      .btn { color: #f0efe9; border-color: rgba(255,255,255,0.2); }
+      .btn:hover { background: rgba(255,255,255,0.06); }
+      select { background: #2a2a27; color: #f0efe9; border-color: rgba(255,255,255,0.2); }
+    }
+
+    #app { width: 100%; max-width: 700px; }
+
+    h1 { font-size: 18px; font-weight: 500; margin-bottom: 1.25rem; }
+
+    canvas {
+      width: 100%; display: block;
+      border-radius: 12px;
+      border: 0.5px solid rgba(0,0,0,0.1);
+    }
+
+    .g3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; }
+
+    .card { background: #ebebea; border-radius: 8px; padding: 14px 16px; text-align: center; }
+    .cl { font-size: 11px; margin-bottom: 4px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .cv { font-size: 24px; font-weight: 500; line-height: 1.15; }
+    .cs { font-size: 11px; margin-top: 4px; color: #777; }
+
+    .sc { display: flex; flex-direction: column; gap: 5px; }
+    .sr { display: flex; justify-content: space-between; align-items: baseline; }
+    .sn { font-size: 13px; font-weight: 500; }
+    .sf { font-size: 12px; color: #777; }
+    .sh { font-size: 11px; color: #999; text-align: center; margin-top: 1px; }
+
+    input[type=range] { width: 100%; cursor: pointer; }
+
+    .btn {
+      padding: 9px 22px; border-radius: 8px;
+      border: 0.5px solid rgba(0,0,0,0.2);
+      background: transparent; color: #1a1a1a;
+      cursor: pointer; font-size: 14px; font-family: inherit;
+    }
+    .btn:hover { background: rgba(0,0,0,0.05); }
+    .btn.p { background: #e6f1fb; color: #185fa5; border-color: transparent; }
+
+    select {
+      font-size: 13px; padding: 6px 10px;
+      border: 0.5px solid rgba(0,0,0,0.2); border-radius: 8px;
+      background: #fff; color: #1a1a1a; cursor: pointer; font-family: inherit;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <h1>Simulación de péndulos con fricción variable</h1>
+
+  <canvas id="pc" width="680" height="330"></canvas>
+
+  <div class="g3" style="margin-top:1.25rem;">
+    <div class="sc">
+      <div class="sr">
+        <span class="sn" style="color:#7F77DD;">Péndulo 1</span>
+        <span class="sf">γ = <span id="fv1">0.15</span></span>
+      </div>
+      <input type="range" id="fs1" min="1" max="300" value="15" step="1" style="accent-color:#7F77DD;">
+      <span class="sh">Poca fricción</span>
+    </div>
+    <div class="sc">
+      <div class="sr">
+        <span class="sn" style="color:#1D9E75;">Péndulo 2</span>
+        <span class="sf">γ = <span id="fv2">0.60</span></span>
+      </div>
+      <input type="range" id="fs2" min="1" max="300" value="60" step="1" style="accent-color:#1D9E75;">
+      <span class="sh">Fricción media</span>
+    </div>
+    <div class="sc">
+      <div class="sr">
+        <span class="sn" style="color:#D85A30;">Péndulo 3</span>
+        <span class="sf">γ = <span id="fv3">2.00</span></span>
+      </div>
+      <input type="range" id="fs3" min="1" max="300" value="200" step="1" style="accent-color:#D85A30;">
+      <span class="sh">Mucha fricción</span>
+    </div>
+  </div>
+
+  <div class="g3" style="margin-top:1rem;">
+    <div class="card">
+      <div class="cl" style="color:#7F77DD;">Péndulo 1</div>
+      <div class="cv" id="tv1">—</div>
+      <div class="cs" id="sv1">Listo</div>
+    </div>
+    <div class="card">
+      <div class="cl" style="color:#1D9E75;">Péndulo 2</div>
+      <div class="cv" id="tv2">—</div>
+      <div class="cs" id="sv2">Listo</div>
+    </div>
+    <div class="card">
+      <div class="cl" style="color:#D85A30;">Péndulo 3</div>
+      <div class="cv" id="tv3">—</div>
+      <div class="cs" id="sv3">Listo</div>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-top:1.25rem;flex-wrap:wrap;">
+    <button class="btn p" id="startBtn" onclick="psStart()">▶ Iniciar simulación</button>
+    <button class="btn" onclick="psReset()">↺ Reiniciar</button>
+    <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:#777;">
+      <span>Velocidad:</span>
+      <select id="spd">
+        <option value="1">1×</option>
+        <option value="3">3×</option>
+        <option value="5" selected>5×</option>
+        <option value="10">10×</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const cv = document.getElementById('pc');
+  const ctx = cv.getContext('2d');
+  const W = 680, H = 330;
+  const C = ['#7F77DD', '#1D9E75', '#D85A30'];
+  const CG = ['rgba(127,119,221,0.16)', 'rgba(29,158,117,0.16)', 'rgba(216,90,48,0.16)'];
+  const px0 = [W / 6, W / 2, 5 * W / 6];
+  const PY = 44, RL = 215;
+  const g = 9.81, Lm = 1.0;
+  const ST = 0.022, SO = 0.04;
+
+  let ps, run, aid, lts;
+
+  function mk() {
+    return [0, 1, 2].map(i => ({
+      theta: 0.36, omega: 0,
+      friction: parseInt(document.getElementById('fs' + (i + 1)).value) / 100,
+      time: 0, stopped: false, trail: [], stoppedTime: null
+    }));
+  }
+
+  ps = mk();
+
+  function phys(p, dt) {
+    if (p.stopped) return;
+    const a = -(g / Lm) * Math.sin(p.theta) - 2 * p.friction * p.omega;
+    p.omega += a * dt;
+    p.theta += p.omega * dt;
+    p.time += dt;
+    if (Math.abs(p.theta) < ST && Math.abs(p.omega) < SO) {
+      p.theta = 0; p.omega = 0; p.stopped = true; p.stoppedTime = p.time;
+    }
+  }
+
+  function bxy(p, i) {
+    return [px0[i] + RL * Math.sin(p.theta), PY + RL * Math.cos(p.theta)];
+  }
+
+  function draw() {
+    const dk = matchMedia('(prefers-color-scheme: dark)').matches;
+    ctx.clearRect(0, 0, W, H);
+
+    ctx.fillStyle = dk ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.07)';
+    ctx.fillRect(0, 0, W, 7);
+
+    ctx.save();
+    ctx.setLineDash([4, 5]);
+    ctx.strokeStyle = dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)';
+    ctx.lineWidth = 1;
+    [W / 3, 2 * W / 3].forEach(x => {
+      ctx.beginPath(); ctx.moveTo(x, 7); ctx.lineTo(x, H); ctx.stroke();
+    });
+    ctx.restore();
+
+    ps.forEach((p, i) => {
+      ctx.beginPath();
+      ctx.strokeStyle = dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)';
+      ctx.lineWidth = 1;
+      ctx.arc(px0[i], PY, RL, Math.PI / 2 - 0.36, Math.PI / 2 + 0.36);
+      ctx.stroke();
+    });
+
+    ps.forEach((p, i) => {
+      const [bx, by] = bxy(p, i);
+
+      p.trail.push([bx, by]);
+      if (p.trail.length > 65) p.trail.shift();
+      for (let j = 1; j < p.trail.length; j++) {
+        const a = j / p.trail.length;
+        const hex = Math.floor(a * 100).toString(16).padStart(2, '0');
+        ctx.beginPath();
+        ctx.strokeStyle = C[i] + hex;
+        ctx.lineWidth = 2.8 * a;
+        ctx.lineCap = 'round';
+        ctx.moveTo(p.trail[j - 1][0], p.trail[j - 1][1]);
+        ctx.lineTo(p.trail[j][0], p.trail[j][1]);
+        ctx.stroke();
+      }
+
+      ctx.font = '500 12px system-ui, sans-serif';
+      ctx.fillStyle = C[i];
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText('γ = ' + p.friction.toFixed(2), px0[i], 12);
+
+      ctx.beginPath();
+      ctx.strokeStyle = dk ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.16)';
+      ctx.lineWidth = 1.8; ctx.lineCap = 'round';
+      ctx.moveTo(px0[i], PY); ctx.lineTo(bx, by); ctx.stroke();
+
+      ctx.beginPath();
+      ctx.fillStyle = dk ? 'rgba(255,255,255,0.42)' : 'rgba(0,0,0,0.26)';
+      ctx.arc(px0[i], PY, 5, 0, Math.PI * 2); ctx.fill();
+
+      const gr = ctx.createRadialGradient(bx, by, 0, bx, by, 28);
+      gr.addColorStop(0, CG[i]); gr.addColorStop(1, 'transparent');
+      ctx.fillStyle = gr;
+      ctx.beginPath(); ctx.arc(bx, by, 28, 0, Math.PI * 2); ctx.fill();
+
+      ctx.beginPath(); ctx.fillStyle = C[i];
+      ctx.arc(bx, by, 15, 0, Math.PI * 2); ctx.fill();
+
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+      ctx.lineWidth = 1;
+      ctx.arc(bx, by, 11, 0, Math.PI * 2); ctx.stroke();
+
+      ctx.beginPath();
+      ctx.fillStyle = 'rgba(255,255,255,0.32)';
+      ctx.arc(bx - 4, by - 4, 5, 0, Math.PI * 2); ctx.fill();
+
+      if (p.stopped) {
+        ctx.font = '500 11px system-ui, sans-serif';
+        ctx.fillStyle = C[i];
+        ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+        ctx.fillText('● detenido', px0[i], H - 8);
+      }
+    });
+  }
+
+  function ui() {
+    ps.forEach((p, i) => {
+      const n = i + 1;
+      const tv = document.getElementById('tv' + n);
+      const sv = document.getElementById('sv' + n);
+      if (p.stopped) {
+        tv.textContent = p.stoppedTime.toFixed(2) + 's';
+        sv.textContent = 'Detenido'; sv.style.color = C[i];
+      } else if (run) {
+        tv.textContent = p.time.toFixed(2) + 's';
+        sv.textContent = 'En movimiento…'; sv.style.color = '#999';
+      } else {
+        tv.textContent = '—'; sv.textContent = 'Listo'; sv.style.color = '#999';
+      }
+    });
+  }
+
+  function loop(ts) {
+    if (!run) return;
+    if (!lts) lts = ts;
+    const rdt = Math.min((ts - lts) / 1000, 0.05); lts = ts;
+    const s = parseFloat(document.getElementById('spd').value);
+    ps.forEach(p => phys(p, rdt * s));
+    draw(); ui();
+    if (ps.every(p => p.stopped)) {
+      run = false;
+      document.getElementById('startBtn').textContent = '✓ Completado';
+      return;
+    }
+    aid = requestAnimationFrame(loop);
+  }
+
+  window.psStart = function () {
+    if (run) return;
+    run = true; lts = null;
+    document.getElementById('startBtn').textContent = '▶ Corriendo…';
+    aid = requestAnimationFrame(loop);
+  };
+
+  window.psReset = function () {
+    run = false;
+    if (aid) cancelAnimationFrame(aid);
+    lts = null; ps = mk();
+    document.getElementById('startBtn').textContent = '▶ Iniciar simulación';
+    [1, 2, 3].forEach(n => {
+      document.getElementById('tv' + n).textContent = '—';
+      const sv = document.getElementById('sv' + n);
+      sv.textContent = 'Listo'; sv.style.color = '#999';
+    });
+    draw();
+  };
+
+  [1, 2, 3].forEach(n => {
+    document.getElementById('fs' + n).addEventListener('input', function () {
+      const v = parseInt(this.value) / 100;
+      document.getElementById('fv' + n).textContent = v.toFixed(2);
+      if (!run) { ps[n - 1].friction = v; draw(); }
+    });
+  });
+
+  draw();
+})();
+</script>
+</body>
+</html>
