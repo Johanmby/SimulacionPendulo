@@ -1,523 +1,717 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Simulación de Péndulos con Fricción</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Péndulo de Newton v5</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --bg2: #16213e;
+    --bg3: #0f3460;
+    --accent: #e94560;
+    --accent2: #f5a623;
+    --text: #eaeaea;
+    --text2: #a0a8c0;
+    --border: rgba(255,255,255,0.10);
+    --radius: 12px;
+    --font: 'Segoe UI', system-ui, sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    padding: 18px;
+    min-height: 100vh;
+  }
+  h1 {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    color: var(--accent);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  h1 span { color: var(--text2); font-weight: 400; font-size: 13px; }
 
-    :root {
-      --bg: #f0eff9;
-      --surface: #e8e7f5;
-      --surface2: #dddcf0;
-      --text: #1a1830;
-      --text2: #6b6880;
-      --border: rgba(100,90,180,0.12);
-      --c1: #7F77DD;
-      --c2: #1D9E75;
-      --c3: #D85A30;
-      --c1g: rgba(127,119,221,0.14);
-      --c2g: rgba(29,158,117,0.14);
-      --c3g: rgba(216,90,48,0.14);
-    }
+  #wrap {
+    background: #1e2240;
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 12px;
+    border: 1px solid var(--border);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  #pc { display: block; width: 100%; cursor: grab; }
+  #pc.dragging { cursor: grabbing; }
 
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #13121e;
-        --surface: #1e1d2e;
-        --surface2: #28273c;
-        --text: #e8e6ff;
-        --text2: #8884aa;
-        --border: rgba(150,140,255,0.1);
-      }
-    }
+  .panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  .panel-title {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    margin-bottom: 10px;
+  }
 
-    body {
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      padding: 2rem 1rem 3rem;
-      display: flex;
-      justify-content: center;
-    }
+  /* Fila de controles por bola */
+  #ctrlrow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .bctl {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+  }
+  .bctl .lbl {
+    font-size: 9px;
+    color: var(--text2);
+    text-align: center;
+    white-space: nowrap;
+  }
+  .bctl input[type=range] { width: 60px; }
+  .vsep {
+    width: 1px;
+    height: 40px;
+    background: var(--border);
+    margin: 0 8px;
+  }
+  .chklbl {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text2);
+    cursor: pointer;
+  }
+  .chklbl input { accent-color: var(--accent); }
 
-    #app { width: 100%; max-width: 780px; display: flex; flex-direction: column; gap: 1.5rem; }
+  /* Fila de botones */
+  .btn-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+  button {
+    background: var(--bg3);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-size: 12px;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+  }
+  button:hover { background: #1a4a80; border-color: rgba(255,255,255,0.2); }
+  button#startBtn { background: var(--accent); border-color: var(--accent); font-weight: 600; }
+  button#startBtn:hover { background: #c73a50; }
 
-    header { display: flex; flex-direction: column; gap: 4px; }
-    header h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.3px; }
-    header p { font-size: 13px; color: var(--text2); }
+  select {
+    background: var(--bg3);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 12px;
+    font-family: var(--font);
+    cursor: pointer;
+  }
+  label { font-size: 12px; color: var(--text2); display: flex; align-items: center; gap: 6px; }
 
-    /* ── canvas simulación ── */
-    #pc { width: 100%; display: block; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); }
+  /* Gráfica */
+  #gc { display: block; width: 100%; }
+  .leg {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .li { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text2); }
+  .li span { width: 18px; height: 2px; border-radius: 2px; display: inline-block; }
 
-    /* ── sliders ── */
-    .sliders { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-    .sc { display: flex; flex-direction: column; gap: 5px; background: var(--surface); border-radius: 10px; padding: 12px 14px; border: 1px solid var(--border); }
-    .sr { display: flex; justify-content: space-between; align-items: baseline; }
-    .sn { font-size: 13px; font-weight: 600; }
-    .sf { font-size: 12px; color: var(--text2); }
-    .sh { font-size: 11px; color: var(--text2); text-align: center; margin-top: 1px; }
-    input[type=range] { width: 100%; cursor: pointer; }
-
-    /* ── stat cards ── */
-    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-    .card { background: var(--surface); border-radius: 10px; padding: 14px 16px; text-align: center; border: 1px solid var(--border); }
-    .cl { font-size: 10px; margin-bottom: 4px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600; }
-    .cv { font-size: 22px; font-weight: 600; line-height: 1.2; }
-    .cs { font-size: 11px; margin-top: 4px; color: var(--text2); }
-
-    /* ── controles ── */
-    .controls { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
-    .btn { padding: 9px 22px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; font-size: 13px; font-family: inherit; font-weight: 500; transition: background 0.15s; }
-    .btn:hover { background: var(--surface2); }
-    .btn.p { background: var(--c1); color: #fff; border-color: transparent; }
-    .btn.p:hover { opacity: 0.88; }
-    .btn.ex { background: #1a7a45; color: #fff; border-color: transparent; }
-    .btn.ex:hover { opacity: 0.88; }
-    select { font-size: 13px; padding: 7px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text); cursor: pointer; font-family: inherit; }
-
-    /* ── sección gráficas energía ── */
-    .energy-section { display: flex; flex-direction: column; gap: 14px; }
-    .energy-section h2 { font-size: 15px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.08em; }
-    .energy-grid { display: flex; flex-direction: column; gap: 16px; }
-    .energy-panel { background: var(--surface); border-radius: 14px; border: 1px solid var(--border); padding: 16px; }
-    .energy-panel h3 { font-size: 13px; font-weight: 600; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
-    .energy-panel h3 span.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-    .energy-panel canvas { width: 100%; display: block; border-radius: 8px; }
-    .legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
-    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text2); }
-    .legend-item span { width: 20px; height: 3px; border-radius: 2px; display: inline-block; }
-  </style>
+  /* Selector N */
+  .n-selector {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text2);
+  }
+  .n-btn {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 700;
+    padding: 0;
+    line-height: 1;
+  }
+  #nDisplay {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent);
+    min-width: 18px;
+    text-align: center;
+  }
+</style>
 </head>
 <body>
-<div id="app">
-  <header>
-    <h1>Simulación de péndulos con fricción variable</h1>
-    <p>Integración de Euler — ecuación del péndulo amortiguado: α = −(g/L)·sin θ − 2γ·ω</p>
-  </header>
+<h1>⚫ Péndulo de Newton <span>simulación física</span></h1>
 
-  <!-- Canvas simulación -->
-  <canvas id="pc" width="760" height="330"></canvas>
+<div id="wrap"><canvas id="pc" width="660" height="360"></canvas></div>
 
-  <!-- Sliders -->
-  <div class="sliders">
-    <div class="sc">
-      <div class="sr"><span class="sn" style="color:var(--c1);">Péndulo 1</span><span class="sf">γ = <span id="fv1">0.15</span></span></div>
-      <input type="range" id="fs1" min="1" max="300" value="15" step="1" style="accent-color:var(--c1);">
-      <span class="sh">Nivel de fricción</span>
+<div class="panel">
+  <div class="panel-title">Configuración de bolas</div>
+  <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+    <div class="n-selector">
+      Bolas:
+      <button class="n-btn" id="nMinus">−</button>
+      <span id="nDisplay">5</span>
+      <button class="n-btn" id="nPlus">+</button>
     </div>
-    <div class="sc">
-      <div class="sr"><span class="sn" style="color:var(--c2);">Péndulo 2</span><span class="sf">γ = <span id="fv2">0.60</span></span></div>
-      <input type="range" id="fs2" min="1" max="300" value="60" step="1" style="accent-color:var(--c2);">
-      <span class="sh">Nivel de fricción</span>
-    </div>
-    <div class="sc">
-      <div class="sr"><span class="sn" style="color:var(--c3);">Péndulo 3</span><span class="sf">γ = <span id="fv3">2.00</span></span></div>
-      <input type="range" id="fs3" min="1" max="300" value="200" step="1" style="accent-color:var(--c3);">
-      <span class="sh">Nivel de fricción</span>
-    </div>
+    <div class="vsep" style="height:28px"></div>
+    <div id="ctrlrow" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap"></div>
+    <div class="vsep" style="height:28px"></div>
+    <label class="chklbl"><input type="checkbox" id="noFric"> Sin fricción</label>
   </div>
+</div>
 
-  <!-- Cards estado -->
-  <div class="cards">
-    <div class="card"><div class="cl" style="color:var(--c1);">Péndulo 1</div><div class="cv" id="tv1">—</div><div class="cs" id="sv1">Listo</div></div>
-    <div class="card"><div class="cl" style="color:var(--c2);">Péndulo 2</div><div class="cv" id="tv2">—</div><div class="cs" id="sv2">Listo</div></div>
-    <div class="card"><div class="cl" style="color:var(--c3);">Péndulo 3</div><div class="cv" id="tv3">—</div><div class="cs" id="sv3">Listo</div></div>
-  </div>
+<div class="btn-row">
+  <button id="startBtn" onclick="simStart()">▶ Iniciar</button>
+  <button onclick="simReset()">↺ Reiniciar</button>
+  <label>Velocidad:
+    <select id="spd">
+      <option value="1">1×</option>
+      <option value="2">2×</option>
+      <option value="4" selected>4×</option>
+    </select>
+  </label>
+  <button onclick="exportExcel()" style="margin-left:auto">⬇ Exportar Excel</button>
+</div>
 
-  <!-- Controles -->
-  <div class="controls">
-    <button class="btn p" id="startBtn" onclick="psStart()">▶ Iniciar simulación</button>
-    <button class="btn" onclick="psReset()">↺ Reiniciar</button>
-    <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text2);">
-      <span>Velocidad:</span>
-      <select id="spd">
-        <option value="1">1×</option>
-        <option value="3">3×</option>
-        <option value="5" selected>5×</option>
-        <option value="10">10×</option>
-      </select>
-    </div>
-    <button class="btn ex" id="exportBtn" onclick="exportExcel()">⬇ Exportar Excel</button>
-  </div>
-
-  <!-- Gráficas de energía -->
-  <div class="energy-section">
-    <h2>📊 Gráficas de energía</h2>
-    <div class="energy-grid" id="energyGrid">
-      <!-- Se generan dinámicamente -->
-    </div>
+<div class="panel">
+  <div class="panel-title">Energía del sistema</div>
+  <canvas id="gc" width="640" height="160"></canvas>
+  <div class="leg">
+    <div class="li"><span style="background:#f59e0b"></span>Cinética total</div>
+    <div class="li"><span style="background:#60a5fa"></span>Potencial total</div>
+    <div class="li"><span style="background:#a78bfa"></span>Mecánica total</div>
+    <div class="li"><span style="background:#94a3b8"></span>Disipada acum.</div>
   </div>
 </div>
 
 <script>
-(function () {
-  const cv = document.getElementById('pc');
-  const ctx = cv.getContext('2d');
-  const W = 760, H = 330;
-  const C = ['#7F77DD', '#1D9E75', '#D85A30'];
-  const CG = ['rgba(127,119,221,0.16)', 'rgba(29,158,117,0.16)', 'rgba(216,90,48,0.16)'];
-  const px0 = [W / 6, W / 2, 5 * W / 6];
-  const PY = 44, RL = 210;
-  const g = 9.81, Lm = 1.0, m = 1.0;
-  const ST = 0.022, SO = 0.04;
+(function(){
+  const cv  = document.getElementById('pc');
+  const ctx  = cv.getContext('2d');
+  const W = 660, H = 360;
+  const GC   = document.getElementById('gc');
+  const gctx = GC.getContext('2d');
 
-  // Colores energía
-  const E_KIN  = '#f59e0b'; // cinética  – ámbar
-  const E_POT  = '#60a5fa'; // potencial – azul
-  const E_TOT  = '#e879f9'; // total      – fucsia
-  const E_DISS = '#94a3b8'; // disipada  – gris
+  // ── Paleta de colores para hasta 8 bolas ──
+  const ALL_COLORS = ['#e84040','#e8a020','#40b840','#4060e8','#a030cc','#20c8c8','#e860a0','#888888'];
+  const ALL_NAMES  = ['Roja','Naranja','Verde','Azul','Morada','Cyan','Rosa','Gris'];
 
-  let ps, run, aid, lts;
-  // Canvases de energía
-  const ecvs = [];
-  const ectxs = [];
+  let N = 5;
+  const MIN_N = 2, MAX_N = 8;
 
-  // ── construir paneles de energía ──
-  function buildEnergyPanels() {
-    const grid = document.getElementById('energyGrid');
-    grid.innerHTML = '';
-    ecvs.length = 0; ectxs.length = 0;
-    ['Péndulo 1', 'Péndulo 2', 'Péndulo 3'].forEach((name, i) => {
-      const panel = document.createElement('div');
-      panel.className = 'energy-panel';
-      panel.innerHTML = `
-        <h3><span class="dot" style="background:${C[i]}"></span>${name} — γ = <span id="elbl${i}">${(parseInt(document.getElementById('fs'+(i+1)).value)/100).toFixed(2)}</span></h3>
-        <canvas id="ecv${i}" width="720" height="160"></canvas>
-        <div class="legend">
-          <div class="legend-item"><span style="background:${E_KIN}"></span>Cinética (Ec)</div>
-          <div class="legend-item"><span style="background:${E_POT}"></span>Potencial (Ep)</div>
-          <div class="legend-item"><span style="background:${E_TOT}"></span>Total (Ec+Ep)</div>
-          <div class="legend-item"><span style="background:${E_DISS}"></span>Disipada acum.</div>
-        </div>`;
-      grid.appendChild(panel);
-      const c = document.getElementById('ecv'+i);
-      ecvs.push(c);
-      ectxs.push(c.getContext('2d'));
+  const MIN_R = 14, MAX_R = 40;
+  let RADII    = Array(MAX_N).fill(28);
+  let FRICTIONS = Array(MAX_N).fill(0.05);
+
+  const V_HALF  = 14;
+  const G_PHYS  = 9.81, SL = 1.0;
+  const ST = 0.012, SO = 0.018;
+
+  const BAR_BACK_Y  = 28, BAR_FRONT_Y = 42, BAR_H = 10;
+  const ANCH_Y  = BAR_FRONT_Y + BAR_H;
+  const STR_LEN = 200;
+  const REST_Y  = ANCH_Y + STR_LEN;
+
+  let histTime=[], histEk=[], histEp=[], histEt=[], histEd=[];
+  let simTime = 0;
+  let run = false, aid, lts;
+  let ps = [];
+
+  // ── Centros X según N y radios actuales ──
+  function calcBX() {
+    const bx = [];
+    const radii = RADII.slice(0, N);
+    let totalW = 0;
+    for (let i = 0; i < N; i++) totalW += radii[i] * 2;
+    totalW += (N - 1) * 1;
+    let x = W / 2 - totalW / 2 + radii[0];
+    for (let i = 0; i < N; i++) {
+      bx.push(x);
+      if (i < N - 1) x += radii[i] + radii[i + 1] + 1;
+    }
+    return bx;
+  }
+
+  function mkBall(i) {
+    return {
+      theta: 0, omega: 0,
+      mass: Math.pow(RADII[i] / 28, 3),
+      friction: FRICTIONS[i],
+      time: 0, stopped: false, stoppedTime: null,
+      ediss: 0, collCD: 0, noFric: false
+    };
+  }
+  function mk() { return Array.from({length: N}, (_, i) => mkBall(i)); }
+  function resetHist() { histTime=[]; histEk=[]; histEp=[]; histEt=[]; histEd=[]; simTime=0; }
+
+  // ── Controles ──
+  function buildControls() {
+    const row = document.getElementById('ctrlrow');
+    row.innerHTML = '';
+    for (let i = 0; i < N; i++) {
+      if (i > 0) { const s = document.createElement('div'); s.className='vsep'; row.appendChild(s); }
+      const d = document.createElement('div'); d.className = 'bctl';
+      const sw = document.createElement('div');
+      sw.style.cssText = `width:12px;height:12px;border-radius:50%;background:${ALL_COLORS[i]};flex-shrink:0`;
+      d.appendChild(sw);
+      const lbl = document.createElement('div'); lbl.className='lbl';
+      lbl.textContent = ALL_NAMES[i]; d.appendChild(lbl);
+      const si = document.createElement('input');
+      si.type='range'; si.min=MIN_R; si.max=MAX_R; si.value=RADII[i]; si.step=1;
+      si.style.accentColor = ALL_COLORS[i];
+      si.addEventListener('input', function() {
+        if (run) return;
+        RADII[i] = parseInt(this.value);
+        ps[i].mass = Math.pow(RADII[i] / 28, 3);
+        draw();
+      });
+      d.appendChild(si);
+      const sl2 = document.createElement('div'); sl2.className='lbl';
+      sl2.textContent = 'Tamaño'; d.appendChild(sl2);
+      row.appendChild(d);
+    }
+    document.getElementById('noFric').addEventListener('change', function() {
+      ps.forEach(p => p.noFric = this.checked);
     });
   }
 
-  function mk() {
-    return [0, 1, 2].map(i => ({
-      theta: 0.36, omega: 0,
-      friction: parseInt(document.getElementById('fs' + (i + 1)).value) / 100,
-      time: 0, stopped: false, trail: [], stoppedTime: null,
-      // historiales de energía
-      histTime: [], histEk: [], histEp: [], histEtot: [], histEdiss: [],
-      ediss: 0,  // energía disipada acumulada
-    }));
+  // Selector de N
+  document.getElementById('nMinus').addEventListener('click', () => { if (!run && N > MIN_N) { N--; rebuild(); } });
+  document.getElementById('nPlus').addEventListener('click',  () => { if (!run && N < MAX_N) { N++; rebuild(); } });
+
+  function rebuild() {
+    document.getElementById('nDisplay').textContent = N;
+    buildControls();
+    ps = mk();
+    resetHist();
+    draw(); drawGraph();
   }
 
+  buildControls();
   ps = mk();
-  buildEnergyPanels();
+  resetHist();
 
-  // ── física ──
-  function phys(p, dt) {
-    if (p.stopped) return;
-    const ek_prev = 0.5 * m * Lm * Lm * p.omega * p.omega;
-    const a = -(g / Lm) * Math.sin(p.theta) - 2 * p.friction * p.omega;
-    p.omega += a * dt;
-    p.theta += p.omega * dt;
-    p.time += dt;
-    const ek_new = 0.5 * m * Lm * Lm * p.omega * p.omega;
-    const h = Lm * (1 - Math.cos(p.theta));
-    const ep = m * g * h;
-    const etot = ek_new + ep;
-    // disipada = pérdida neta de energía mecánica
-    const prev_ep = m * g * Lm * (1 - Math.cos(p.theta - p.omega * dt)); // ep anterior aproximada
-    const delta_emec = (ek_new + ep) - (ek_prev + prev_ep);
-    if (delta_emec < 0) p.ediss += Math.abs(delta_emec);
+  // ── Posición de bola ──
+  function ballPos(p, i) {
+    const bxArr = calcBX();
+    return [bxArr[i] + STR_LEN * Math.sin(p.theta), ANCH_Y + STR_LEN * Math.cos(p.theta)];
+  }
 
-    // muestreo cada ~0.05 s de tiempo real de simulación
-    const last = p.histTime.length ? p.histTime[p.histTime.length - 1] : -1;
-    if (p.time - last >= 0.04) {
-      p.histTime.push(parseFloat(p.time.toFixed(3)));
-      p.histEk.push(parseFloat(ek_new.toFixed(5)));
-      p.histEp.push(parseFloat(ep.toFixed(5)));
-      p.histEtot.push(parseFloat(etot.toFixed(5)));
-      p.histEdiss.push(parseFloat(p.ediss.toFixed(5)));
+  // ── DRAG FIX ──
+  // Cada bola del grupo tiene su propio ancla X (bxArr[j]).
+  // El ángulo se calcula para CADA bola usando SU ancla, no la de la bola arrastrada.
+  // La bola seleccionada sigue al cursor directamente, y las demás del grupo
+  // heredan el mismo ángulo (que es correcto porque comparten el movimiento conjunto).
+  let dragging = -1, dragGroup = [];
+
+  function pointerThetaForBall(clientX, ballIdx) {
+    const rect = cv.getBoundingClientRect();
+    const scaleX = W / rect.width;
+    const px = (clientX - rect.left) * scaleX;
+    const bxArr = calcBX();
+    const dx = px - bxArr[ballIdx];
+    // Permitir arrastrar en AMBAS direcciones
+    const raw = Math.asin(Math.max(-0.98, Math.min(0.98, dx / STR_LEN)));
+    return raw;
+  }
+
+  function onDown(e) {
+    if (run) return;
+    const rect = cv.getBoundingClientRect();
+    const scaleX = W / rect.width, scaleY = H / rect.height;
+    const cx2 = (e.clientX ?? e.touches?.[0].clientX) - rect.left;
+    const cy2 = (e.clientY ?? e.touches?.[0].clientY) - rect.top;
+    const cpx = cx2 * scaleX, cpy = cy2 * scaleY;
+    for (let i = 0; i < N; i++) {
+      const [bx, by] = ballPos(ps[i], i);
+      if (Math.sqrt((cpx - bx) ** 2 + (cpy - by) ** 2) < RADII[i] + 8) {
+        dragging = i;
+        // El grupo que se arrastra depende de la dirección:
+        // - Si se jala la bola i hacia la izquierda (theta negativo), se arrastra i y menores (0..i)
+        // - Si se jala hacia la derecha (theta positivo), se arrastra i y mayores (i..N-1)
+        // Lo determinamos dinámicamente en onMove según el signo del ángulo.
+        dragGroup = [i]; // inicialmente solo la bola clickeada
+        cv.classList.add('dragging');
+        break;
+      }
+    }
+  }
+
+  function onMove(e) {
+    if (dragging < 0) return;
+    e.preventDefault();
+    const cx2 = e.clientX ?? e.touches?.[0].clientX;
+    // Calcular ángulo usando el ancla de la bola arrastrada
+    const theta = pointerThetaForBall(cx2, dragging);
+
+    // Determinar grupo según dirección del arrastre
+    if (theta < -0.005) {
+      // Jalar izquierda: grupo son bolas 0..dragging
+      dragGroup = [];
+      for (let j = 0; j <= dragging; j++) dragGroup.push(j);
+    } else if (theta > 0.005) {
+      // Jalar derecha: grupo son bolas dragging..N-1
+      dragGroup = [];
+      for (let j = dragging; j < N; j++) dragGroup.push(j);
+    } else {
+      dragGroup = [dragging];
     }
 
-    if (Math.abs(p.theta) < ST && Math.abs(p.omega) < SO) {
+    // Aplicar ángulo a cada bola del grupo usando SU propio ancla
+    // Para que todas queden físicamente alineadas, usamos el mismo theta
+    // (las bolas cuelgan del mismo punto relativo, solo cambia su ancla X)
+    dragGroup.forEach(j => {
+      ps[j].theta = theta;
+      ps[j].omega = 0;
+    });
+
+    // Las bolas fuera del grupo vuelven a theta=0
+    for (let j = 0; j < N; j++) {
+      if (!dragGroup.includes(j)) {
+        ps[j].theta = 0;
+        ps[j].omega = 0;
+      }
+    }
+
+    draw();
+  }
+
+  function onUp() { dragging = -1; dragGroup = []; cv.classList.remove('dragging'); }
+
+  cv.addEventListener('mousedown', onDown);
+  cv.addEventListener('mousemove', onMove);
+  cv.addEventListener('mouseup',   onUp);
+  cv.addEventListener('mouseleave',onUp);
+  cv.addEventListener('touchstart', e => { e.preventDefault(); onDown(e); }, {passive: false});
+  cv.addEventListener('touchmove',  e => { e.preventDefault(); onMove(e); }, {passive: false});
+  cv.addEventListener('touchend', onUp);
+
+  // ── Física ──
+  function phys(p, dt) {
+    if (p.stopped) return;
+    if (p.collCD > 0) p.collCD -= dt;
+    const fr = p.noFric ? 0 : p.friction;
+    const ek0 = 0.5 * p.mass * SL * SL * p.omega * p.omega;
+    const ep0 = p.mass * G_PHYS * SL * (1 - Math.cos(p.theta));
+    const a = -(G_PHYS / SL) * Math.sin(p.theta) - 2 * fr * p.omega;
+    p.omega += a * dt; p.theta += p.omega * dt; p.time += dt;
+    const ek1 = 0.5 * p.mass * SL * SL * p.omega * p.omega;
+    const ep1 = p.mass * G_PHYS * SL * (1 - Math.cos(p.theta));
+    const dE = (ek1 + ep1) - (ek0 + ep0);
+    if (dE < 0) p.ediss += Math.abs(dE);
+    if (Math.abs(p.theta) < ST && Math.abs(p.omega) < SO && p.time > 0.3) {
       p.theta = 0; p.omega = 0; p.stopped = true; p.stoppedTime = p.time;
     }
   }
 
-  // ── energías para dibujo en tiempo real ──
-  function energy(p) {
-    const ek = 0.5 * m * Lm * Lm * p.omega * p.omega;
-    const ep = m * g * Lm * (1 - Math.cos(p.theta));
-    return { ek, ep, etot: ek + ep, ediss: p.ediss };
+  function checkCol() {
+    const bxArr = calcBX();
+    for (let i = 0; i < N - 1; i++) {
+      const pi = ps[i], pj = ps[i + 1];
+      if (pi.collCD > 0 || pj.collCD > 0) continue;
+      const [xi, yi] = ballPos(pi, i);
+      const [xj, yj] = ballPos(pj, i + 1);
+      const dx = xj - xi, dy = yj - yi;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      const minD = RADII[i] + RADII[i + 1];
+      if (d < minD - 0.5) {
+        const vi = SL * pi.omega * Math.cos(pi.theta);
+        const vj = SL * pj.omega * Math.cos(pj.theta);
+        const m1 = pi.mass, m2 = pj.mass, mt = m1 + m2;
+        const vi2 = ((m1 - m2) * vi + 2 * m2 * vj) / mt;
+        const vj2 = ((m2 - m1) * vj + 2 * m1 * vi) / mt;
+        pi.omega = vi2 / SL; pj.omega = vj2 / SL;
+        if (pi.stopped && Math.abs(pi.omega) > SO) { pi.stopped = false; pi.stoppedTime = null; }
+        if (pj.stopped && Math.abs(pj.omega) > SO) { pj.stopped = false; pj.stoppedTime = null; }
+        const ov = minD - d + 0.5, nx = dx / d;
+        pi.theta -= ov * 0.5 * nx / STR_LEN;
+        pj.theta += ov * 0.5 * nx / STR_LEN;
+        pi.collCD = 0.05; pj.collCD = 0.05;
+      }
+    }
   }
 
-  // ── dibujo simulación ──
-  function bxy(p, i) {
-    return [px0[i] + RL * Math.sin(p.theta), PY + RL * Math.cos(p.theta)];
+  function sysE() {
+    let ek = 0, ep = 0, ed = 0;
+    ps.forEach(p => {
+      ek += 0.5 * p.mass * SL * SL * p.omega * p.omega;
+      ep += p.mass * G_PHYS * SL * (1 - Math.cos(p.theta));
+      ed += p.ediss;
+    });
+    return {ek, ep, et: ek + ep, ed};
+  }
+
+  function recE() {
+    const {ek, ep, et, ed} = sysE();
+    const last = histTime.length ? histTime[histTime.length - 1] : -1;
+    if (simTime - last >= 0.04) {
+      histTime.push(+simTime.toFixed(3));
+      histEk.push(+ek.toFixed(5)); histEp.push(+ep.toFixed(5));
+      histEt.push(+et.toFixed(5)); histEd.push(+ed.toFixed(5));
+    }
+  }
+
+  // ── Dibujo ──
+  function drawGrid() {
+    const CELL = 28;
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 0.5;
+    for (let x = 0; x <= W; x += CELL) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+    for (let y = 0; y <= H; y += CELL) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  }
+
+  function drawFrame(bxArr) {
+    const fL = bxArr[0] - RADII[0] - 28;
+    const fR = bxArr[N - 1] + RADII[N - 1] + 28;
+    // Barra trasera
+    ctx.fillStyle = '#2a2a4a';
+    ctx.beginPath(); ctx.roundRect(fL, BAR_BACK_Y, fR - fL, BAR_H, 3); ctx.fill();
+    // Barra delantera
+    ctx.fillStyle = '#3a3a6a';
+    ctx.beginPath(); ctx.roundRect(fL, BAR_FRONT_Y, fR - fL, BAR_H, 3); ctx.fill();
+    // Línea brillante en la barra
+    ctx.fillStyle = 'rgba(150,150,255,0.18)';
+    ctx.beginPath(); ctx.roundRect(fL + 2, BAR_FRONT_Y + 1, fR - fL - 4, 3, 2); ctx.fill();
+    // Pilares
+    ctx.fillStyle = '#2a2a4a';
+    ctx.beginPath(); ctx.roundRect(fL - 2, BAR_BACK_Y, 8, H - BAR_BACK_Y - 14, 3); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(fR - 6, BAR_BACK_Y, 8, H - BAR_BACK_Y - 14, 3); ctx.fill();
+    // Base
+    ctx.beginPath(); ctx.roundRect(fL - 12, H - 14, fR - fL + 24, 8, 3); ctx.fill();
+  }
+
+  function drawStrings(p, i, bxArr) {
+    const [bx, by] = ballPos(p, i);
+    const axL = bxArr[i] - V_HALF, ayL = BAR_BACK_Y + BAR_H;
+    const axR = bxArr[i] + V_HALF, ayR = BAR_FRONT_Y + BAR_H;
+    ctx.beginPath(); ctx.moveTo(axL, ayL); ctx.lineTo(bx - 3, by - RADII[i] + 2);
+    ctx.strokeStyle = 'rgba(180,180,255,0.30)'; ctx.lineWidth = 1.2; ctx.lineCap = 'round'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(axL, ayL, 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(180,180,255,0.25)'; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(axR, ayR); ctx.lineTo(bx + 3, by - RADII[i] + 2);
+    ctx.strokeStyle = 'rgba(200,200,255,0.50)'; ctx.lineWidth = 1.4; ctx.lineCap = 'round'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(axR, ayR, 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(200,200,255,0.40)'; ctx.fill();
+  }
+
+  function drawBall(bx, by, color, i) {
+    const r = RADII[i];
+    // Sombra en suelo
+    ctx.beginPath(); ctx.ellipse(bx, REST_Y + 6, r * 0.7, 4, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fill();
+    // Glow
+    const glow = ctx.createRadialGradient(bx, by, r * 0.2, bx, by, r * 1.5);
+    glow.addColorStop(0, color + '30'); glow.addColorStop(1, 'transparent');
+    ctx.beginPath(); ctx.arc(bx, by, r * 1.5, 0, Math.PI * 2);
+    ctx.fillStyle = glow; ctx.fill();
+    // Cuerpo con gradiente
+    const grad = ctx.createRadialGradient(bx - r * 0.3, by - r * 0.3, r * 0.1, bx, by, r);
+    grad.addColorStop(0, lighten(color, 60)); grad.addColorStop(1, darken(color, 40));
+    ctx.beginPath(); ctx.arc(bx, by, r, 0, Math.PI * 2);
+    ctx.fillStyle = grad; ctx.fill();
+    // Borde
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1.5; ctx.stroke();
+    // Reflejo superior
+    ctx.beginPath(); ctx.ellipse(bx - r * 0.28, by - r * 0.30, r * 0.36, r * 0.26, Math.PI / 5, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.fill();
+    // Reflejo secundario
+    ctx.beginPath(); ctx.ellipse(bx + r * 0.28, by + r * 0.28, r * 0.18, r * 0.13, Math.PI / 4, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fill();
+    // Ángulo al arrastrar
+    if (!run && Math.abs(ps[i].theta) > 0.02) {
+      ctx.font = `600 ${Math.max(10, r * 0.40) | 0}px var(--font, system-ui)`;
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(Math.round(Math.abs(ps[i].theta) * (180 / Math.PI)) + '°', bx, by);
+    }
+  }
+
+  // Helpers de color
+  function lighten(hex, amt) { return shiftColor(hex, amt); }
+  function darken(hex, amt)  { return shiftColor(hex, -amt); }
+  function shiftColor(hex, amt) {
+    const n = parseInt(hex.slice(1), 16);
+    let r = Math.min(255, Math.max(0, (n >> 16) + amt));
+    let g = Math.min(255, Math.max(0, ((n >> 8) & 0xff) + amt));
+    let b = Math.min(255, Math.max(0, (n & 0xff) + amt));
+    return `rgb(${r},${g},${b})`;
   }
 
   function draw() {
-    const dk = matchMedia('(prefers-color-scheme: dark)').matches;
     ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
-    ctx.fillRect(0, 0, W, 7);
-    ctx.save();
-    ctx.setLineDash([4, 5]);
-    ctx.strokeStyle = dk ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)';
-    ctx.lineWidth = 1;
-    [W / 3, 2 * W / 3].forEach(x => { ctx.beginPath(); ctx.moveTo(x, 7); ctx.lineTo(x, H); ctx.stroke(); });
-    ctx.restore();
-
-    ps.forEach((p, i) => {
-      ctx.beginPath();
-      ctx.strokeStyle = dk ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)';
-      ctx.lineWidth = 1;
-      ctx.arc(px0[i], PY, RL, Math.PI / 2 - 0.36, Math.PI / 2 + 0.36);
-      ctx.stroke();
-    });
-
-    ps.forEach((p, i) => {
-      const [bx, by] = bxy(p, i);
-      p.trail.push([bx, by]);
-      if (p.trail.length > 65) p.trail.shift();
-      for (let j = 1; j < p.trail.length; j++) {
-        const a = j / p.trail.length;
-        const hex = Math.floor(a * 100).toString(16).padStart(2, '0');
-        ctx.beginPath();
-        ctx.strokeStyle = C[i] + hex;
-        ctx.lineWidth = 2.8 * a;
-        ctx.lineCap = 'round';
-        ctx.moveTo(p.trail[j - 1][0], p.trail[j - 1][1]);
-        ctx.lineTo(p.trail[j][0], p.trail[j][1]);
-        ctx.stroke();
-      }
-
-      ctx.font = '600 12px Segoe UI, system-ui, sans-serif';
-      ctx.fillStyle = C[i];
-      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      ctx.fillText('γ = ' + p.friction.toFixed(2), px0[i], 12);
-
-      ctx.beginPath();
-      ctx.strokeStyle = dk ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.14)';
-      ctx.lineWidth = 1.8; ctx.lineCap = 'round';
-      ctx.moveTo(px0[i], PY); ctx.lineTo(bx, by); ctx.stroke();
-
-      ctx.beginPath();
-      ctx.fillStyle = dk ? 'rgba(255,255,255,0.38)' : 'rgba(0,0,0,0.22)';
-      ctx.arc(px0[i], PY, 5, 0, Math.PI * 2); ctx.fill();
-
-      const gr = ctx.createRadialGradient(bx, by, 0, bx, by, 28);
-      gr.addColorStop(0, CG[i]); gr.addColorStop(1, 'transparent');
-      ctx.fillStyle = gr;
-      ctx.beginPath(); ctx.arc(bx, by, 28, 0, Math.PI * 2); ctx.fill();
-
-      ctx.beginPath(); ctx.fillStyle = C[i];
-      ctx.arc(bx, by, 15, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 1;
-      ctx.arc(bx, by, 11, 0, Math.PI * 2); ctx.stroke();
-      ctx.beginPath(); ctx.fillStyle = 'rgba(255,255,255,0.30)';
-      ctx.arc(bx - 4, by - 4, 5, 0, Math.PI * 2); ctx.fill();
-
-      if (p.stopped) {
-        ctx.font = '500 11px Segoe UI, system-ui'; ctx.fillStyle = C[i];
-        ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-        ctx.fillText('● detenido', px0[i], H - 8);
-      }
-    });
+    // Fondo oscuro con gradiente
+    const bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, '#1e2240'); bg.addColorStop(1, '#141830');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+    drawGrid();
+    const bxArr = calcBX();
+    drawFrame(bxArr);
+    ps.forEach((p, i) => drawStrings(p, i, bxArr));
+    ps.forEach((p, i) => { const [bx, by] = ballPos(p, i); drawBall(bx, by, ALL_COLORS[i], i); });
+    if (!run) {
+      ctx.font = '11px var(--font, system-ui)';
+      ctx.fillStyle = 'rgba(255,255,255,0.30)';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText('Arrastra cualquier bola en cualquier dirección para elevarla', W / 2, H - 8);
+    }
   }
 
-  // ── dibujo gráficas energía ──
-  function drawEnergy(i) {
-    const p = ps[i];
-    const c = ecvs[i];
-    const cx = ectxs[i];
-    const cw = c.width, ch = c.height;
-    const PAD = { top: 12, right: 16, bottom: 28, left: 52 };
-    const pw = cw - PAD.left - PAD.right;
-    const ph = ch - PAD.top - PAD.bottom;
-    const dk = matchMedia('(prefers-color-scheme: dark)').matches;
-
-    cx.clearRect(0, 0, cw, ch);
-
-    const hist = p.histTime;
-    if (hist.length < 2) {
-      cx.fillStyle = dk ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.18)';
-      cx.font = '13px Segoe UI, system-ui'; cx.textAlign = 'center'; cx.textBaseline = 'middle';
-      cx.fillText('Inicia la simulación para ver la gráfica', cw / 2, ch / 2);
-      return;
+  function drawGraph() {
+    const cw = GC.width, ch = GC.height;
+    const PAD = {t: 8, r: 12, b: 22, l: 48};
+    const pw = cw - PAD.l - PAD.r, ph = ch - PAD.t - PAD.b;
+    gctx.clearRect(0, 0, cw, ch);
+    gctx.fillStyle = '#0f1428'; gctx.fillRect(0, 0, cw, ch);
+    if (histTime.length < 2) {
+      gctx.fillStyle = 'rgba(255,255,255,0.25)'; gctx.font = '12px system-ui';
+      gctx.textAlign = 'center'; gctx.textBaseline = 'middle';
+      gctx.fillText('Arrastra una bola e inicia la simulación', cw / 2, ch / 2); return;
     }
-
-    const maxT = Math.max(...hist);
-    // E0 = energía mecánica inicial
-    const E0 = 0.5 * m * Lm * Lm * 0 + m * g * Lm * (1 - Math.cos(0.36));
-    const maxE = E0 * 1.08;
-
-    // grid
-    cx.strokeStyle = dk ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)';
-    cx.lineWidth = 1;
-    for (let gi = 0; gi <= 4; gi++) {
-      const y = PAD.top + ph * (1 - gi / 4);
-      cx.beginPath(); cx.moveTo(PAD.left, y); cx.lineTo(PAD.left + pw, y); cx.stroke();
-      cx.fillStyle = dk ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)';
-      cx.font = '10px Segoe UI, system-ui'; cx.textAlign = 'right'; cx.textBaseline = 'middle';
-      cx.fillText((maxE * gi / 4).toFixed(3) + ' J', PAD.left - 4, y);
+    const maxT = histTime[histTime.length - 1];
+    const maxE = Math.max(...histEt, ...histEd) * 1.1 || 1;
+    gctx.strokeStyle = 'rgba(255,255,255,0.06)'; gctx.lineWidth = 1;
+    for (let g = 0; g <= 4; g++) {
+      const y = PAD.t + ph * (1 - g / 4);
+      gctx.beginPath(); gctx.moveTo(PAD.l, y); gctx.lineTo(PAD.l + pw, y); gctx.stroke();
+      gctx.fillStyle = 'rgba(255,255,255,0.35)';
+      gctx.font = '9px system-ui'; gctx.textAlign = 'right'; gctx.textBaseline = 'middle';
+      gctx.fillText((maxE * g / 4).toFixed(3) + 'J', PAD.l - 4, y);
     }
-
-    function tx(t) { return PAD.left + (t / maxT) * pw; }
-    function ty(e) { return PAD.top + ph * (1 - Math.min(e / maxE, 1.05)); }
-
-    function drawLine(arr, color, lw) {
-      cx.beginPath(); cx.strokeStyle = color; cx.lineWidth = lw; cx.lineJoin = 'round';
-      arr.forEach((v, j) => { j === 0 ? cx.moveTo(tx(hist[j]), ty(v)) : cx.lineTo(tx(hist[j]), ty(v)); });
-      cx.stroke();
+    const tx = t => PAD.l + (t / maxT) * pw;
+    const ty = e => PAD.t + ph * (1 - Math.min(e / maxE, 1.05));
+    function dl(arr, col, lw) {
+      if (!arr.length) return;
+      gctx.beginPath(); gctx.strokeStyle = col; gctx.lineWidth = lw; gctx.lineJoin = 'round';
+      arr.forEach((v, j) => j === 0 ? gctx.moveTo(tx(histTime[j]), ty(v)) : gctx.lineTo(tx(histTime[j]), ty(v)));
+      gctx.stroke();
     }
-
-    drawLine(p.histEdiss, E_DISS, 1.5);
-    drawLine(p.histEp,    E_POT,  1.8);
-    drawLine(p.histEk,    E_KIN,  1.8);
-    drawLine(p.histEtot,  E_TOT,  2.2);
-
-    // eje X
-    cx.fillStyle = dk ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)';
-    cx.font = '10px Segoe UI, system-ui'; cx.textAlign = 'center'; cx.textBaseline = 'top';
+    dl(histEd, '#94a3b8', 1.4); dl(histEp, '#60a5fa', 1.8); dl(histEk, '#f59e0b', 1.8); dl(histEt, '#a78bfa', 2.2);
+    gctx.fillStyle = 'rgba(255,255,255,0.30)'; gctx.font = '9px system-ui';
+    gctx.textAlign = 'center'; gctx.textBaseline = 'top';
     for (let ti = 0; ti <= 5; ti++) {
       const t = maxT * ti / 5;
-      cx.fillText(t.toFixed(1) + 's', tx(t), PAD.top + ph + 5);
+      gctx.fillText(t.toFixed(1) + 's', tx(t), PAD.t + ph + 4);
     }
-
-    // energía actual
-    const e = energy(p);
-    cx.font = '11px Segoe UI, system-ui'; cx.textAlign = 'right'; cx.textBaseline = 'top';
-    cx.fillStyle = E_KIN; cx.fillText('Ec=' + e.ek.toFixed(4) + 'J', PAD.left + pw, PAD.top + 2);
-    cx.fillStyle = E_POT; cx.fillText('Ep=' + e.ep.toFixed(4) + 'J', PAD.left + pw, PAD.top + 14);
-    cx.fillStyle = E_TOT; cx.fillText('Et=' + e.etot.toFixed(4) + 'J', PAD.left + pw, PAD.top + 26);
   }
 
-  // ── UI ──
-  function ui() {
-    ps.forEach((p, i) => {
-      const n = i + 1;
-      const tv = document.getElementById('tv' + n);
-      const sv = document.getElementById('sv' + n);
-      if (p.stopped) {
-        tv.textContent = p.stoppedTime.toFixed(2) + 's';
-        sv.textContent = 'Detenido'; sv.style.color = C[i];
-      } else if (run) {
-        tv.textContent = p.time.toFixed(2) + 's';
-        sv.textContent = 'En movimiento…'; sv.style.color = '#999';
-      } else {
-        tv.textContent = '—'; sv.textContent = 'Listo'; sv.style.color = '#999';
-      }
-      const lbl = document.getElementById('elbl' + i);
-      if (lbl) lbl.textContent = p.friction.toFixed(2);
-    });
-  }
-
+  // ── Loop ──
+  const SUB = 12;
   function loop(ts) {
     if (!run) return;
     if (!lts) lts = ts;
     const rdt = Math.min((ts - lts) / 1000, 0.05); lts = ts;
     const s = parseFloat(document.getElementById('spd').value);
-    ps.forEach(p => phys(p, rdt * s));
-    draw();
-    ps.forEach((_, i) => drawEnergy(i));
-    ui();
+    const dt = (rdt * s) / SUB;
+    for (let k = 0; k < SUB; k++) { ps.forEach(p => phys(p, dt)); checkCol(); }
+    simTime += rdt * s;
+    recE(); draw(); drawGraph();
     if (ps.every(p => p.stopped)) {
-      run = false;
-      document.getElementById('startBtn').textContent = '✓ Completado';
-      return;
+      run = false; document.getElementById('startBtn').textContent = 'Completado'; return;
     }
     aid = requestAnimationFrame(loop);
   }
 
-  // ── exportar Excel ──
-  window.exportExcel = function () {
-    const wb = XLSX.utils.book_new();
+  window.simStart = function() {
+    if (run) return;
+    if (ps.every(p => Math.abs(p.theta) < 0.01)) ps[0].theta = -0.65;
+
+    // Detectar qué bolas están elevadas (tienen ángulo) y cuáles están en reposo
+    // Las bolas en reposo adyacentes al grupo elevado reciben collCD para no
+    // bloquear inmediatamente al grupo que cae — esto evita que la bola
+    // seleccionada quede atrapada al inicio por colisión prematura
+    const elevated = ps.map((p, i) => Math.abs(p.theta) > 0.01);
 
     ps.forEach((p, i) => {
-      const name = 'Pendulo_' + (i + 1);
-      const header = ['Tiempo (s)', 'Ec - Cinética (J)', 'Ep - Potencial (J)', 'Et - Total (J)', 'Ediss - Disipada acum. (J)'];
-      const rows = p.histTime.map((t, j) => [t, p.histEk[j], p.histEp[j], p.histEtot[j], p.histEdiss[j]]);
-
-      const wsData = [
-        [`Péndulo ${i + 1} — Coeficiente de fricción γ = ${p.friction.toFixed(2)}`],
-        [],
-        header,
-        ...rows
-      ];
-
-      const ws = XLSX.utils.aoa_to_sheet(wsData);
-
-      // anchos de columna
-      ws['!cols'] = [{ wch: 14 }, { wch: 22 }, { wch: 22 }, { wch: 18 }, { wch: 26 }];
-
-      // merge título
-      ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
-
-      XLSX.utils.book_append_sheet(wb, ws, name);
+      p.omega = 0;
+      p.stopped = false;
+      p.stoppedTime = null;
+      p.time = 0;
+      p.ediss = 0;
+      // Si está en reposo y tiene una bola elevada adyacente,
+      // añadir cooldown para que no colisione antes de que se separen
+      const leftElevated  = i > 0     && elevated[i - 1];
+      const rightElevated = i < N - 1 && elevated[i + 1];
+      if (elevated[i]) {
+        p.collCD = 0; // la bola elevada empieza sin cooldown
+      } else {
+        p.collCD = (leftElevated || rightElevated) ? 0.12 : 0;
+      }
     });
 
-    // hoja resumen
-    const sumData = [
-      ['Resumen de simulación'],
-      [],
-      ['Péndulo', 'γ (fricción)', 'Tiempo de parada (s)', 'Energía inicial (J)', 'Energía disipada total (J)'],
-      ...ps.map((p, i) => {
-        const E0 = m * g * Lm * (1 - Math.cos(0.36));
-        const edissTotal = p.histEdiss.length ? p.histEdiss[p.histEdiss.length - 1] : 0;
-        return [
-          'Péndulo ' + (i + 1),
-          p.friction.toFixed(2),
-          p.stoppedTime !== null ? p.stoppedTime.toFixed(3) : 'En curso',
-          parseFloat(E0.toFixed(5)),
-          parseFloat(edissTotal.toFixed(5))
-        ];
-      })
-    ];
-    const wsSummary = XLSX.utils.aoa_to_sheet(sumData);
-    wsSummary['!cols'] = [{ wch: 14 }, { wch: 14 }, { wch: 22 }, { wch: 20 }, { wch: 26 }];
-    wsSummary['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
-    XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumen');
+    // Si el grupo elevado tiene theta positivo (jalado a la derecha),
+    // desplazar ligeramente las bolas en reposo a la izquierda
+    // para evitar overlap inmediato al inicio
+    const rightGroup = ps.some(p => p.theta > 0.01);
+    if (rightGroup) {
+      ps.forEach((p, i) => {
+        if (!elevated[i]) {
+          // Pequeño desplazamiento hacia la izquierda
+          p.theta = -0.04;
+        }
+      });
+    }
 
-    XLSX.writeFile(wb, 'pendulos_energia.xlsx');
-  };
-
-  window.psStart = function () {
-    if (run) return;
-    run = true; lts = null;
-    document.getElementById('startBtn').textContent = '▶ Corriendo…';
+    resetHist(); run = true; lts = null;
+    document.getElementById('startBtn').textContent = 'Corriendo...';
     aid = requestAnimationFrame(loop);
   };
 
-  window.psReset = function () {
-    run = false;
-    if (aid) cancelAnimationFrame(aid);
-    lts = null; ps = mk();
-    document.getElementById('startBtn').textContent = '▶ Iniciar simulación';
-    [1, 2, 3].forEach(n => {
-      document.getElementById('tv' + n).textContent = '—';
-      const sv = document.getElementById('sv' + n);
-      sv.textContent = 'Listo'; sv.style.color = '#999';
-    });
-    draw();
-    ecvs.forEach((_, i) => drawEnergy(i));
-    buildEnergyPanels();
-    ecvs.forEach((_, i) => drawEnergy(i));
+  window.simReset = function() {
+    run = false; if (aid) cancelAnimationFrame(aid); lts = null;
+    ps = mk(); resetHist();
+    document.getElementById('startBtn').textContent = '▶ Iniciar';
+    draw(); drawGraph();
   };
 
-  [1, 2, 3].forEach(n => {
-    document.getElementById('fs' + n).addEventListener('input', function () {
-      const v = parseInt(this.value) / 100;
-      document.getElementById('fv' + n).textContent = v.toFixed(2);
-      if (!run) { ps[n - 1].friction = v; draw(); }
-    });
-  });
+  window.exportExcel = function() {
+    if (!window.XLSX) { alert('Librería no disponible'); return; }
+    const wb = XLSX.utils.book_new();
+    const hdr = ['Tiempo (s)','Ec total (J)','Ep total (J)','Et total (J)','Edisipada acum. (J)'];
+    const rows = histTime.map((t, j) => [t, histEk[j], histEp[j], histEt[j], histEd[j]]);
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['Péndulo de Newton — Energía del sistema'],
+      [`Bolas: ${N} | Fricción individual por bola`], [], hdr, ...rows
+    ]);
+    ws['!cols'] = [{wch:12},{wch:16},{wch:16},{wch:16},{wch:20}];
+    ws['!merges'] = [{s:{r:0,c:0},e:{r:0,c:4}},{s:{r:1,c:0},e:{r:1,c:4}}];
+    XLSX.utils.book_append_sheet(wb, ws, 'Energía');
+    XLSX.writeFile(wb, 'pendulo_newton.xlsx');
+  };
 
-  // render inicial
-  draw();
-  ecvs.forEach((_, i) => drawEnergy(i));
+  draw(); drawGraph();
 })();
 </script>
 </body>
